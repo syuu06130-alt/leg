@@ -1,40 +1,41 @@
--- Roblox R6キャラクターの左脚のみを安全に削除するLocalScript
--- StarterPlayer > StarterPlayerScripts に配置してください
--- キャラクターのスポーン/リスポーン時に自動で左脚を削除します
--- 安全のため、まずHipジョイントを破壊してから脚パーツを破壊します
+-- Remove Legs (R6) Script
+-- Place this LocalScript in StarterPlayer > StarterCharacterScripts
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
 
-local function removeLeftLeg(character)
-    local humanoid = character:FindFirstChild("Humanoid")
-    if humanoid and humanoid.RigType == Enum.HumanoidRigType.R6 then
-        -- Torso内のLeft Hipジョイントを破壊（これで脚が切断される）
-        local torso = character:FindFirstChild("Torso")
-        if torso then
-            local leftHip = torso:FindFirstChild("Left Hip")
-            if leftHip then
-                leftHip:Destroy()
-            end
-        end
-        -- Left Legパーツを破壊
-        local leftLeg = character:FindFirstChild("Left Leg")
-        if leftLeg then
-            leftLeg:Destroy()
-        end
-    end
+-- 削除する脚を選択（"Left Leg" または "Right Leg"）
+local legToRemove = "Left Leg"  -- ここを変更して削除する脚を選択
+
+-- 脚を安全に削除する関数
+local function removeLeg()
+	-- キャラクターが存在するか確認
+	if not character then
+		warn("Character not found")
+		return
+	end
+	
+	-- 脚のパーツを取得
+	local leg = character:FindFirstChild(legToRemove)
+	
+	if leg then
+		-- 脚が存在する場合、削除
+		leg:Destroy()
+		print(legToRemove .. " has been removed")
+	else
+		warn(legToRemove .. " not found in character")
+	end
 end
 
-local function onCharacterAdded(character)
-    character:WaitForChild("Humanoid")
-    task.wait(0.1)  -- キャラクターが完全にロードされるのを少し待つ
-    removeLeftLeg(character)
-end
+-- キャラクターがロードされた後に脚を削除
+wait(0.1)  -- キャラクターが完全にロードされるまで少し待機
+removeLeg()
 
--- 現在のキャラクターに適用
-if player.Character then
-    onCharacterAdded(player.Character)
-end
-
--- リスポーン時にも適用
-player.CharacterAdded:Connect(onCharacterAdded)
+-- キャラクターがリスポーンした際にも脚を削除
+player.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+	humanoid = character:WaitForChild("Humanoid")
+	wait(0.1)
+	removeLeg()
+end)

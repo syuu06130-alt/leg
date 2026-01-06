@@ -1,8 +1,81 @@
--- Remove Legs (R6) with Draggable UI
--- Place this LocalScript in StarterPlayer > StarterPlayerScripts
+--[[
+=== PART 1: SERVER SCRIPT ===
+Place this Script in ServerScriptService
+Name it: "LegRemoverServer"
+--]]
+
+-- RemoteEventの作成
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local remoteEvent = Instance.new("RemoteEvent")
+remoteEvent.Name = "RemoveLegEvent"
+remoteEvent.Parent = ReplicatedStorage
+
+-- R6とR15の脚パーツ名
+local R6_LEGS = {
+	Left = {"Left Leg"},
+	Right = {"Right Leg"}
+}
+
+local R15_LEGS = {
+	Left = {"LeftUpperLeg", "LeftLowerLeg", "LeftFoot"},
+	Right = {"RightUpperLeg", "RightLowerLeg", "RightFoot"}
+}
+
+-- 脚を削除する関数
+local function removeLeg(player, legSide)
+	local character = player.Character
+	if not character then return false end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then return false end
+	
+	local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+	local partsToRemove = isR15 and R15_LEGS[legSide] or R6_LEGS[legSide]
+	
+	local removed = false
+	
+	if partsToRemove then
+		for _, partName in ipairs(partsToRemove) do
+			local part = character:FindFirstChild(partName)
+			if part then
+				part:Destroy()
+				removed = true
+			end
+		end
+	end
+	
+	return removed
+end
+
+-- RemoteEventのリスナー
+remoteEvent.OnServerEvent:Connect(function(player, legSide)
+	if legSide == "Left" or legSide == "Right" then
+		removeLeg(player, legSide)
+	end
+end)
+
+print("Leg Remover Server Script loaded!")
+
+--[[
+=== PART 2: LOCAL SCRIPT ===
+Place this LocalScript in StarterPlayer > StarterPlayerScripts
+Name it: "LegRemoverClient"
+--]]
+
+-- 以下のコードは別のLocalScriptに入れてください：
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- RemoteEventを取得（サーバーが作成するまで待機）
+local remoteEvent = ReplicatedStorage:WaitForChild("RemoveLegEvent", 10)
+
+if not remoteEvent then
+	warn("RemoteLegEvent not found! Make sure the server script is running.")
+	return
+end
 
 -- ScreenGuiの作成
 local screenGui = Instance.new("ScreenGui")
@@ -19,7 +92,6 @@ mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
--- UIコーナーの追加
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 10)
 mainCorner.Parent = mainFrame
@@ -41,9 +113,9 @@ local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -20, 1, 0)
 titleLabel.Position = UDim2.new(0, 10, 0, 0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Leg Remover (R6)"
+titleLabel.Text = "Leg Remover (R6/R15)"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 18
+titleLabel.TextSize = 16
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = titleBar
@@ -148,35 +220,31 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 	end
 end)
 
--- 脚を削除する関数
-local function removeLeg(legName)
-	local character = player.Character
-	if not character then
-		statusLabel.Text = "Character not found!"
-		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-		return
-	end
+-- 脚を削除する関数（サーバーにリクエスト）
+local function removeLeg(legSide)
+	statusLabel.Text = "Removing " .. legSide:lower() .. " leg..."
+	statusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
 	
-	local leg = character:FindFirstChild(legName)
-	if leg then
-		leg:Destroy()
-		statusLabel.Text = legName .. " removed!"
-		statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-	else
-		statusLabel.Text = legName .. " not found!"
-		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-	end
+	-- サーバーに削除リクエストを送信
+	remoteEvent:FireServer(legSide)
+	
+	-- フィードバック
+	wait(0.1)
+	statusLabel.Text = legSide .. " leg removed!"
+	statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
 end
 
 -- ボタンのクリックイベント
 leftLegButton.MouseButton1Click:Connect(function()
-	removeLeg("Left Leg")
+	removeLeg("Left")
 end)
 
 rightLegButton.MouseButton1Click:Connect(function()
-	removeLeg("Right Leg")
+	removeLeg("Right")
 end)
 
 closeButton.MouseButton1Click:Connect(function()
 	screenGui:Destroy()
 end)
+
+print("Leg Remover Client Script loaded!")

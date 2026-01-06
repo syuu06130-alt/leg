@@ -1,15 +1,8 @@
---[[
-=== PART 1: SERVER SCRIPT ===
-Place this Script in ServerScriptService
-Name it: "LegRemoverServer"
---]]
+-- Remove Legs (R6/R15) - Single LocalScript
+-- Place this LocalScript in StarterPlayer > StarterPlayerScripts
 
--- RemoteEventの作成
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local remoteEvent = Instance.new("RemoteEvent")
-remoteEvent.Name = "RemoveLegEvent"
-remoteEvent.Parent = ReplicatedStorage
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
 -- R6とR15の脚パーツ名
 local R6_LEGS = {
@@ -21,61 +14,6 @@ local R15_LEGS = {
 	Left = {"LeftUpperLeg", "LeftLowerLeg", "LeftFoot"},
 	Right = {"RightUpperLeg", "RightLowerLeg", "RightFoot"}
 }
-
--- 脚を削除する関数
-local function removeLeg(player, legSide)
-	local character = player.Character
-	if not character then return false end
-	
-	local humanoid = character:FindFirstChild("Humanoid")
-	if not humanoid then return false end
-	
-	local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
-	local partsToRemove = isR15 and R15_LEGS[legSide] or R6_LEGS[legSide]
-	
-	local removed = false
-	
-	if partsToRemove then
-		for _, partName in ipairs(partsToRemove) do
-			local part = character:FindFirstChild(partName)
-			if part then
-				part:Destroy()
-				removed = true
-			end
-		end
-	end
-	
-	return removed
-end
-
--- RemoteEventのリスナー
-remoteEvent.OnServerEvent:Connect(function(player, legSide)
-	if legSide == "Left" or legSide == "Right" then
-		removeLeg(player, legSide)
-	end
-end)
-
-print("Leg Remover Server Script loaded!")
-
---[[
-=== PART 2: LOCAL SCRIPT ===
-Place this LocalScript in StarterPlayer > StarterPlayerScripts
-Name it: "LegRemoverClient"
---]]
-
--- 以下のコードは別のLocalScriptに入れてください：
-
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- RemoteEventを取得（サーバーが作成するまで待機）
-local remoteEvent = ReplicatedStorage:WaitForChild("RemoveLegEvent", 10)
-
-if not remoteEvent then
-	warn("RemoteLegEvent not found! Make sure the server script is running.")
-	return
-end
 
 -- ScreenGuiの作成
 local screenGui = Instance.new("ScreenGui")
@@ -220,18 +158,45 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 	end
 end)
 
--- 脚を削除する関数（サーバーにリクエスト）
+-- 脚を削除する関数
 local function removeLeg(legSide)
-	statusLabel.Text = "Removing " .. legSide:lower() .. " leg..."
-	statusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+	local character = player.Character
+	if not character then
+		statusLabel.Text = "Character not found!"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		return
+	end
 	
-	-- サーバーに削除リクエストを送信
-	remoteEvent:FireServer(legSide)
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then
+		statusLabel.Text = "Humanoid not found!"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		return
+	end
 	
-	-- フィードバック
-	wait(0.1)
-	statusLabel.Text = legSide .. " leg removed!"
-	statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	-- R6かR15かを判定
+	local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+	local partsToRemove = isR15 and R15_LEGS[legSide] or R6_LEGS[legSide]
+	
+	local removedCount = 0
+	
+	if partsToRemove then
+		for _, partName in ipairs(partsToRemove) do
+			local part = character:FindFirstChild(partName)
+			if part then
+				part:Destroy()
+				removedCount = removedCount + 1
+			end
+		end
+	end
+	
+	if removedCount > 0 then
+		statusLabel.Text = legSide .. " leg removed! (" .. (isR15 and "R15" or "R6") .. ")"
+		statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	else
+		statusLabel.Text = "No parts found to remove!"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+	end
 end
 
 -- ボタンのクリックイベント
@@ -247,4 +212,4 @@ closeButton.MouseButton1Click:Connect(function()
 	screenGui:Destroy()
 end)
 
-print("Leg Remover Client Script loaded!")
+print("Leg Remover loaded successfully!")
